@@ -5,7 +5,7 @@ import os
 # Add the project root to the Python path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from app.query_builder import build_query, normalize_name, variants
+from app. import build_query, normalize_name, variants
 from app.main import extract_json
 
 def test_normalize_name():

@@ -5,3 +5,8 @@ pydantic
 python-dotenv
 Unidecode
 pytest
+unidecode
+pytest
+fuzzywuzzy[speedup]
+metaphone
+transliterate
