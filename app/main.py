@@ -1,7 +1,7 @@
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from app.models import ComplianceRequest, ComplianceResponse
-from app.query_builder import build_query
+from app.query_builder import QueryBuilder
 from app.lightrag_client import query_lightrag
 import json, re
 
@@ -26,7 +26,8 @@ def extract_json(s: str):
 @app.post("/compliance/check", response_model=ComplianceResponse)
 async def compliance_check(req: ComplianceRequest):
     try:
-        query_text = build_query(req.data)
+        query_builder = QueryBuilder(req.data)
+        query_text = query_builder.build_query()
         lr = await query_lightrag(query_text)
         # LightRAG may return either a dict with 'response' or a string
         raw = lr if isinstance(lr, str) else lr.get("response", "")
