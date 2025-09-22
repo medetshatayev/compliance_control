@@ -5,17 +5,17 @@ import os
 # Add the project root to the Python path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from app. import build_query, normalize_name, variants
+from app.query_builder import QueryBuilder, TextNormalizer
 from app.main import extract_json
 
 def test_normalize_name():
-    assert normalize_name('ОАО "Пиллан Точик"') == 'ОАО "Пиллан Точик"'
-    assert normalize_name('  ТОО «ASHAN  Ой»  ') == 'ТОО "ASHAN Ой"'
+    assert TextNormalizer.normalize_name('ОАО "Пиллан Точик"') == 'ОАО "Пиллан Точик"'
+    assert TextNormalizer.normalize_name('  ТОО «ASHAN  Ой»  ') == 'ТОО "ASHAN Ой"'
 
 def test_variants():
     name = 'ОАО "Пиллан Точик"'
     expected_variants = sorted(['OAO "Pillai Tochik"', 'OAO "Pillan Tochik"', 'ОАО "Пиллаи Точик"', 'ОАО "Пиллан Точик"'])
-    assert variants(name) == expected_variants
+    assert TextNormalizer.variants(name) == expected_variants
 
 def test_build_query():
     payload = {
@@ -46,7 +46,8 @@ def test_build_query():
       "UN_CODE": "1",
       "CONTRACT_TYPE_SYSTEM": "02"
     }
-    query = build_query(payload)
+    query_builder = QueryBuilder(payload)
+    query = query_builder.build_query()
     assert "HS code 5001000000" in query
     assert 'ОАО "Пиллаи Точик"' in query
     assert "IRTYKZKA, HSBKKZKX, KZKOTJ22XXX" in query
