@@ -1,5 +1,6 @@
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, BackgroundTasks
+import httpx
 from app.models import ComplianceRequest, ComplianceResponse
 from app.query_builder import QueryBuilder
 from app.lightrag_client import query_lightrag
@@ -24,7 +25,7 @@ def extract_json(s: str):
     return None
 
 @app.post("/compliance/check", response_model=ComplianceResponse)
-async def compliance_check(req: ComplianceRequest):
+async def compliance_check(req: ComplianceRequest, background_tasks: BackgroundTasks):
     try:
         query_builder = QueryBuilder(req.data)
         query_text = query_builder.build_query()
@@ -43,12 +44,39 @@ async def compliance_check(req: ComplianceRequest):
             verdict, risk = "clear", "none"
 
         checks = parsed.get("hits") if parsed else {}
-        return ComplianceResponse(
+        response = ComplianceResponse(
             verdict=verdict,
             risk_level=risk,
             checks=checks if isinstance(checks, dict) else {},
             lightrag_response=raw if isinstance(raw, str) else str(lr),
             parsed_json=parsed
         )
+        # Optional background callback delivery
+        if req.callback_url:
+            payload = {
+                "request_id": req.request_id,
+                "verdict": response.verdict,
+                "risk_level": response.risk_level,
+                "checks": response.checks,
+                "lightrag_response": response.lightrag_response,
+                "parsed_json": response.parsed_json,
+            }
+
+            async def _post_callback(url: str, body: dict):
+                try:
+                    async with httpx.AsyncClient(timeout=10.0) as client:
+                        await client.post(url, json=body)
+                except Exception:
+                    # Swallow callback errors to not affect main response
+                    pass
+
+            background_tasks.add_task(_post_callback, req.callback_url, payload)
+
+        return response
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/health")
+async def health():
+    return {"status": "ok"}

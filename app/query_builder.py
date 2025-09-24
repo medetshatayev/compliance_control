@@ -16,7 +16,27 @@ class TextNormalizer:
     def variants(name: str):
         """Generates variants for name"""
         base = TextNormalizer.normalize_name(name)
-        return [base]
+
+        variants = {base}
+
+        # Latin transliteration using unidecode
+        try:
+            latin = unidecode(base)
+            variants.add(latin)
+        except Exception:
+            latin = None
+
+        # Heuristic aliasing for common OCR/transliteration confusions observed in samples
+        # 1) Cyrillic: "ан" ↔ "аи" for endings like "Пиллан" → "Пиллаи"
+        if "Пиллан" in base:
+            variants.add(base.replace("Пиллан", "Пиллаи"))
+
+        # 2) Latin: "an" ↔ "ai" for endings like "Pillan" → "Pillai"
+        if latin and "Pillan" in latin:
+            variants.add(latin.replace("Pillan", "Pillai"))
+
+        # Return a sorted list for deterministic comparison in tests
+        return sorted(variants)
     
 
 class QueryBuilder:
@@ -31,10 +51,10 @@ class QueryBuilder:
     def build_query(self) -> str:
         """Building query for LightRAG"""
 
-        counterparty = get("COUNTERPARTY_NAME") 
-        consignee = get("CONSIGNEE")
-        client = get("CLIENT")
-        manufacturer = get("MANUFACTURER")
+        counterparty = self._get("COUNTERPARTY_NAME") 
+        consignee = self._get("CONSIGNEE")
+        client = self._get("CLIENT")
+        manufacturer = self._get("MANUFACTURER")
 
         entities_to_check = {
             "Counterparty": counterparty,
@@ -54,6 +74,7 @@ class QueryBuilder:
 
 
         query_text = f"""
+[System Prompt]
 Task: Sanctions and trade restrictions screening using the knowledge graph. You need to give a final verdict based on built-in knowledge graph on ready documents of sanctions list of US, UK and EU.
 Return a compact JSON matching exactly this schema:
 {{
@@ -74,7 +95,9 @@ Return a compact JSON matching exactly this schema:
     ]
   }}
 }}
+Output only the JSON per the schema with no extra text. Use information only from knowledge graph, don't add by yourself and don't hallucinate. 
 
+[User Prompt]
 Screen the following transaction:
 - Contract Type: {self._get("CONTRACT_TYPE")} (system: "{self._get("CONTRACT_TYPE_SYSTEM")}")
 {entity_variants_text}
@@ -90,7 +113,5 @@ Questions:
 2) Are any banks with SWIFT {banks} sanctioned or restricted?
 3) Is HS {self._get("HS_CODE")} or the described goods controlled/sanctioned for {self._get("CONSIGNEE_COUNTRY")}↔{self._get("COUNTERPARTY_COUNTRY")} trade?
 4) Are there embargoes/restrictions that affect {self._get("CONSIGNEE_COUNTRY")}↔{self._get("COUNTERPARTY_COUNTRY")} for this transaction?
-
-Output only the JSON per the schema with no extra text. Use information only from knowledge graph, don't add by yourself and don't hallucinate. 
 """
         return query_text

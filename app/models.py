@@ -3,6 +3,8 @@ from pydantic import BaseModel
 
 class ComplianceRequest(BaseModel):
     data: Dict[str, Any]  # raw contract JSON
+    request_id: Optional[str] = None
+    callback_url: Optional[str] = None
 
 class Hit(BaseModel):
     matched: bool
