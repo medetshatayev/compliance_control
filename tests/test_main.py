@@ -33,7 +33,7 @@ def test_build_query():
       "CURRENCY_CONTRACT_TYPE_CODE": "1",
       "COUNTERPARTY_NAME": "ОАО \"Пиллаи Точик\", Республика Таджикистан",
       "PRODUCT_NAME": "Коконы урожая 2024-2025",
-      "CROSS_BORDER": "1",
+      "CROSS_BORDER": "1", # 0 проверка сторон только 
       "MANUFACTURER": "ОАО \"Пиллаи Точик\", Республика Таджикистан",
       "PAYMENT_METHOD": "14",
       "REPATRIATION_TERM": "180 дней",

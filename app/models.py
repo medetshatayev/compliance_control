@@ -6,34 +6,33 @@ class ComplianceRequest(BaseModel):
     request_id: Optional[str] = None
     callback_url: Optional[str] = None
 
-class Hit(BaseModel):
-    matched: bool
-    notes: Optional[str] = None
+class CountryVerdict(BaseModel):
+    verdict: bool
+    explanation: str
 
-class EntityHit(Hit):
-    name: str
-    match_type: Optional[str] = None
-    list: Optional[str] = None
-    source: Optional[str] = None
+class GoodsCountryVerdict(BaseModel):
+    verdict: bool
+    explanation: str
+    hs_code: str
 
-class BankHit(Hit):
-    swift: str
-    list: Optional[str] = None
-    source: Optional[str] = None
+class ProverkaStoron(BaseModel):
+    us: CountryVerdict
+    uk: CountryVerdict
+    eu: CountryVerdict
 
-class GoodsHit(Hit):
-    hs_code: Optional[str] = None
-    control_basis: Optional[str] = None
-    source: Optional[str] = None
+class Goods(BaseModel):
+    us: GoodsCountryVerdict
+    uk: GoodsCountryVerdict
+    eu: GoodsCountryVerdict
 
-class JurisdictionHit(Hit):
-    route: str
-    control_basis: Optional[str] = None
-    source: Optional[str] = None
+class NewFormatChecks(BaseModel):
+    proverka_storon: ProverkaStoron
+    route: Optional[str] = None
+    contract_type: Optional[str] = None
+    goods: Optional[Goods] = None
 
 class ComplianceResponse(BaseModel):
     verdict: str
     risk_level: str
-    checks: Dict[str, List[Dict[str, Any]]]
+    checks: Dict[str, Any]  
     lightrag_response: str
-    parsed_json: Optional[Dict[str, Any]] = None

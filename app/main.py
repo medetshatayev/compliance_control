@@ -24,6 +24,8 @@ def extract_json(s: str):
             return None
     return None
 
+# ...existing code...
+
 @app.post("/compliance/check", response_model=ComplianceResponse)
 async def compliance_check(req: ComplianceRequest, background_tasks: BackgroundTasks):
     try:
@@ -37,19 +39,40 @@ async def compliance_check(req: ComplianceRequest, background_tasks: BackgroundT
         # Decide verdict conservatively
         verdict = "flag"
         risk = "medium"
-        if parsed and parsed.get("verdict") in ("clear","flag"):
-            verdict = parsed["verdict"]
-            risk = "none" if verdict == "clear" else "medium"
-        elif isinstance(raw, str) and re.search(r"\b(no (sanctions|hits|matches)|not listed)\b", raw, re.I):
-            verdict, risk = "clear", "none"
+        checks = {}
 
-        checks = parsed if parsed else {}
+        if parsed:
+            # Только новый формат
+            has_sanctions = False
+            
+            # Проверяем стороны
+            if parsed.get("proverka_storon"):
+                for country_data in parsed["proverka_storon"].values():
+                    if country_data.get("verdict") == True:
+                        has_sanctions = True
+                        break
+            
+            # Проверяем товары
+            if parsed.get("goods"):
+                for country_data in parsed["goods"].values():
+                    if country_data.get("verdict") == True:
+                        has_sanctions = True
+                        break
+            
+            verdict = "flag" if has_sanctions else "clear"
+            risk = "medium" if has_sanctions else "none"
+            checks = parsed  # Весь parsed JSON идёт в checks
+        else:
+            verdict = "flag"
+            risk = "medium"
+            checks = {}
         response = ComplianceResponse(
             verdict=verdict,
             risk_level=risk,
             checks=checks if isinstance(checks, dict) else {},
             lightrag_response=raw if isinstance(raw, str) else str(lr)
         )
+        
         # Optional background callback delivery
         if req.callback_url:
             payload = {
@@ -73,6 +96,8 @@ async def compliance_check(req: ComplianceRequest, background_tasks: BackgroundT
         return response
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+# ...existing code...
 
 
 @app.get("/health")
