@@ -29,7 +29,7 @@ def extract_json(s: str):
 @app.post("/compliance/check", response_model=ComplianceResponse)
 async def compliance_check(req: ComplianceRequest, background_tasks: BackgroundTasks):
     try:
-        query_builder = QueryBuilder(req.data)
+        query_builder = QueryBuilder.from_fields_data(req.data)
         query_text = query_builder.build_query()
         lr = await query_lightrag(query_text)
         # LightRAG may return either a dict with 'response' or a string
