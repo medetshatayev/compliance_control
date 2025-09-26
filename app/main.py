@@ -43,13 +43,12 @@ async def compliance_check(req: ComplianceRequest, background_tasks: BackgroundT
         elif isinstance(raw, str) and re.search(r"\b(no (sanctions|hits|matches)|not listed)\b", raw, re.I):
             verdict, risk = "clear", "none"
 
-        checks = parsed.get("hits") if parsed else {}
+        checks = parsed if parsed else {}
         response = ComplianceResponse(
             verdict=verdict,
             risk_level=risk,
             checks=checks if isinstance(checks, dict) else {},
-            lightrag_response=raw if isinstance(raw, str) else str(lr),
-            parsed_json=parsed
+            lightrag_response=raw if isinstance(raw, str) else str(lr)
         )
         # Optional background callback delivery
         if req.callback_url:
@@ -59,7 +58,6 @@ async def compliance_check(req: ComplianceRequest, background_tasks: BackgroundT
                 "risk_level": response.risk_level,
                 "checks": response.checks,
                 "lightrag_response": response.lightrag_response,
-                "parsed_json": response.parsed_json,
             }
 
             async def _post_callback(url: str, body: dict):
