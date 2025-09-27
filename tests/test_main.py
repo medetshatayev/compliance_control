@@ -57,3 +57,31 @@ def test_extract_json():
     assert extract_json(f"some text {json_str} some other text") == {"key": "value"}
     assert extract_json('no json here') is None
     assert extract_json('{"bad": json}') is None
+
+
+# json = {
+#     "proverka_storon": [
+#         "us": False,
+#         "uk": True,
+#         "eu": True
+#     ]
+# }
+
+# json  {
+#     "proverka_storon": [
+#         "us": [
+#             "verdict": False,
+#             "explanation": str 
+#         ]
+#     ],
+#     "route": str,
+#     "contract_type": str, 
+#     "goods": [
+#         "us": [
+#             "verdict": False,
+#             "explanation": str,
+#             "hs code": str, 
+#         ]
+#     ]
+# }
+
