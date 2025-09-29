@@ -181,97 +181,97 @@ class QueryBuilder:
         ### Examples
         Example 1:
         Input:
-        {
+        {{
   "request_id": "req-790",
   "callback_url": null,
-  "data": {
+  "data": {{
     "fields": [
-      {
+      {{
         "name": "Наименование клиента",
-        "name_eng": "CLIENT", 
+        "name_eng": "CLIENT",
         "value": "ТОО \"Импортёр Казахстан\"",
         "confidence": 0.95
-      },
-      {
+      }},
+      {{
         "name": "Наименование контрагента",
         "name_eng": "COUNTERPARTY_NAME",
-        "value": "ПАО \"Сбербанк России\"", 
+        "value": "ПАО \"Сбербанк России\"",
         "confidence": 0.95
-      },
-      {
+      }},
+      {{
         "name": "Грузополучатель",
         "name_eng": "CONSIGNEE",
         "value": "Казахстанский получатель",
         "confidence": 0.95
-      },
-      {
-        "name": "Производитель", 
+      }},
+      {{
+        "name": "Производитель",
         "name_eng": "MANUFACTURER",
         "value": "Российский поставщик",
         "confidence": 0.95
-      },
-      {
+      }},
+      {{
         "name": "БИК/SWIFT",
-        "name_eng": "BIK_SWIFT", 
+        "name_eng": "BIK_SWIFT",
         "value": ["SABRRUMM"],
         "confidence": 0.95
-      },
-      {
+      }},
+      {{
         "name": "Пересечение РК",
         "name_eng": "CROSS_BORDER",
         "value": "0",
         "confidence": 0.95
-      },
-      {
+      }},
+      {{
         "name": "Маршрут",
-        "name_eng": "ROUTE", 
+        "name_eng": "ROUTE",
         "value": "RU-KZ",
         "confidence": 0.95
-      },
-      {
+      }},
+      {{
         "name": "Код ТН ВЭД",
         "name_eng": "HS_CODE",
-        "value": "8517709000", 
+        "value": "8517709000",
         "confidence": 0.95
-      },
-      {
+      }},
+      {{
         "name": "Наименование товара",
         "name_eng": "PRODUCT_NAME",
         "value": "Оборудование для телекоммуникаций",
         "confidence": 0.95
-      },
-      {
+      }},
+      {{
         "name": "Тип контракта",
-        "name_eng": "CONTRACT_TYPE", 
+        "name_eng": "CONTRACT_TYPE",
         "value": "Импорт",
         "confidence": 0.95
-      }
+      }}
     ]
-  }
-}
- 
+  }}
+}}
+
         Process: Matches in all US/UK/EU lists.
         Output:
-        {
+        {{
   "verdict": "flag",
   "risk_level": "medium",
-  "checks": {
-    "check_parties": {
-      "us": {
+  "checks": {{
+    "check_parties": {{
+      "us": {{
         "verdict": true,
         "explanation": "ПАО 'Сбербанк России'/Sberbank Rossii (including the SWIFT/BIC code SABRRUMM) is sanctioned by OFAC (US) and appears in the OFAC 24.09.2025 list. No information is available indicating that 'Казахстанский получатель', 'ТОО \"Импортёр Казахстан\"', or 'Российский поставщик' are sanctioned by the US; these names and their variants do not appear in the provided OFAC lists."
-      },
-      "uk": {
+      }},
+      "uk": {{
         "verdict": true,
         "explanation": "ПАО 'Сбербанк России'/Sberbank Rossii is sanctioned under the Russia (Sanctions) (EU Exit) Regulations 2019 and associated UK designations. No UK sanctions are found in the data for 'Казахстанский получатель', 'ТОО \"Импортёр Казахстан\"', or 'Российский поставщик'."
-      },
-      "eu": {
+      }},
+      "eu": {{
         "verdict": true,
         "explanation": "ПАО 'Сбербанк России'/Sberbank Rossii is subject to EU financial sanctions, including under various EU lists (e.g., Annex I to Regulation (EU) No 269/2014 and subsequent restrictive measures against Russian financial institutions). No evidence is found that 'Казахстанский получатель', 'ТОО \"Импортёр Казахстан\"', or 'Российский поставщик' are sanctioned by the EU."
-      }
-    }
-  },
-}
+      }}
+    }}
+  }},
+}}
         ### Current task
         Screen these entities and banks:
         {entity_variants_text}
@@ -291,116 +291,116 @@ class QueryBuilder:
         ### Examples
         Example 1:
         Input:
-        {
+        {{
   "request_id": "req-790",
   "callback_url": null,
-  "data": {
+  "data": {{
     "fields": [
-      {
+      {{
         "name": "Наименование клиента",
-        "name_eng": "CLIENT", 
+        "name_eng": "CLIENT",
         "value": "ТОО \"Импортёр Казахстан\"",
         "confidence": 0.95
-      },
-      {
+      }},
+      {{
         "name": "Наименование контрагента",
         "name_eng": "COUNTERPARTY_NAME",
-        "value": "ПАО \"Сбербанк России\"", 
+        "value": "ПАО \"Сбербанк России\"",
         "confidence": 0.95
-      },
-      {
+      }},
+      {{
         "name": "Грузополучатель",
         "name_eng": "CONSIGNEE",
         "value": "Казахстанский получатель",
         "confidence": 0.95
-      },
-      {
-        "name": "Производитель", 
+      }},
+      {{
+        "name": "Производитель",
         "name_eng": "MANUFACTURER",
         "value": "Российский поставщик",
         "confidence": 0.95
-      },
-      {
+      }},
+      {{
         "name": "БИК/SWIFT",
-        "name_eng": "BIK_SWIFT", 
+        "name_eng": "BIK_SWIFT",
         "value": ["SABRRUMM"],
         "confidence": 0.95
-      },
-      {
+      }},
+      {{
         "name": "Пересечение РК",
         "name_eng": "CROSS_BORDER",
         "value": "0",
         "confidence": 0.95
-      },
-      {
+      }},
+      {{
         "name": "Маршрут",
-        "name_eng": "ROUTE", 
+        "name_eng": "ROUTE",
         "value": "RU-KZ",
         "confidence": 0.95
-      },
-      {
+      }},
+      {{
         "name": "Код ТН ВЭД",
         "name_eng": "HS_CODE",
-        "value": "8517709000", 
+        "value": "8517709000",
         "confidence": 0.95
-      },
-      {
+      }},
+      {{
         "name": "Наименование товара",
         "name_eng": "PRODUCT_NAME",
         "value": "Оборудование для телекоммуникаций",
         "confidence": 0.95
-      },
-      {
+      }},
+      {{
         "name": "Тип контракта",
-        "name_eng": "CONTRACT_TYPE", 
+        "name_eng": "CONTRACT_TYPE",
         "value": "Импорт",
         "confidence": 0.95
-      }
+      }}
     ]
-  }
-}
- 
+  }}
+}}
+
         Process: Matches in all US/UK/EU lists.
         Output:
-        {
+        {{
   "verdict": "flag",
   "risk_level": "medium",
-  "checks": {
-    "check_parties": {
-      "us": {
+  "checks": {{
+    "check_parties": {{
+      "us": {{
         "verdict": true,
         "explanation": "ПАО 'Сбербанк России' (Sberbank Rossii) is listed by OFAC under multiple aliases and appears in OFAC sectoral sanctions records. No information links the Kazakh, client, or manufacturer entities to US restrictions."
-      },
-      "uk": {
+      }},
+      "uk": {{
         "verdict": true,
         "explanation": "ПАО 'Сбербанк России' (Sberbank Rossii) is a notable Russian bank subject to extensive UK Russia-related sanctions according to the Russia (Sanctions) (EU Exit) Regulations 2019. There is no evidence in the data of sanctions on the Kazakh or client entities."
-      },
-      "eu": {
+      }},
+      "eu": {{
         "verdict": true,
         "explanation": "ПАО 'Сбербанк России' appears as a key sanctioned entity for EU restrictive measures involving Russian banks; no evidence of EU sanctions on specified Kazakh parties or the manufacturer."
-      }
-    },
+      }}
+    }},
     "route": "RU-KZ",
     "contract_type": "Импорт",
-    "goods": {
-      "us": {
+    "goods": {{
+      "us": {{
         "verdict": false,
         "explanation": "No explicit US sectoral or dual-use export controls or prohibitions were identified on telecommunications equipment under HS 8517709000 for export from Russia to Kazakhstan in the provided source data.",
         "hs code": "8517709000"
-      },
-      "uk": {
+      }},
+      "uk": {{
         "verdict": false,
         "explanation": "There are no explicit UK prohibitions found in the provided data on telecommunications equipment with HS 8517709000 for import into Kazakhstan from Russia.",
         "hs code": "8517709000"
-      },
-      "eu": {
+      }},
+      "eu": {{
         "verdict": false,
         "explanation": "The provided data does not indicate EU restrictions or prohibitions covering telecommunications equipment with HS 8517709000 for this route.",
         "hs code": "8517709000"
-      }
-    }
-  },
-}
+      }}
+    }}
+  }},
+}}
         
 
 Screen this transaction against all sanctions lists:
