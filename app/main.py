@@ -24,12 +24,17 @@ def extract_json(s: str):
             return None
     return None
 
-# ...existing code...
 
 @app.post("/compliance/check", response_model=ComplianceResponse)
 async def compliance_check(req: ComplianceRequest, background_tasks: BackgroundTasks):
     try:
-        query_builder = QueryBuilder.from_fields_data(req.data)
+        # 1) {"data": {"fields": [ {name_eng, value, confidence}, ... ]}}
+        # 2) {"data": {"KEY": "VALUE", ...}} — плоский JSON
+        data_obj = req.data or {}
+        if isinstance(data_obj, dict) and "fields" in data_obj:
+            query_builder = QueryBuilder.from_fields_data(data_obj)
+        else:
+            query_builder = QueryBuilder.from_flat_payload(data_obj)
         query_text = query_builder.build_query()
         lr = await query_lightrag(query_text)
         # LightRAG may return either a dict with 'response' or a string

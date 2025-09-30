@@ -112,6 +112,45 @@ class QueryBuilder:
         payload = DataTransformer.transform_fields_to_payload(fields_data)
         return cls(payload)
     
+    @classmethod
+    def from_flat_payload(cls, payload: dict):
+        """Create QueryBuilder from flat key-value JSON.
+        - Normalize into uppercase
+        - Removes extra spaces
+        """
+        if not isinstance(payload, dict):
+            return cls({})
+        
+        normalized: dict = {}
+        for raw_key, raw_value in payload.items():
+            if raw_key is None:
+                continue
+            key = str(raw_key).strip().upper().replace(" ", "_")
+            value = raw_value
+            if value is None:
+                norm_value = ""
+            elif isinstance(value, (list, tuple)):
+                norm_value = ", ".join(str(v) for v in value if v is not None)
+            else:
+                norm_value = str(value)
+            
+            if key in normalized and normalized[key] and norm_value:
+                if str(norm_value) not in str(normalized[key]):
+                    normalized[key] = f"{normalized[key]}, {norm_value}"
+            else:
+                normalized[key] = norm_value
+        
+        bank_value = normalized.get("BANK", "").strip()
+        if bank_value:
+            if normalized.get("BIK_SWIFT"):
+                existing = normalized["BIK_SWIFT"].strip()
+                if bank_value not in existing:
+                    normalized["BIK_SWIFT"] = f"{existing}, {bank_value}" if existing else bank_value
+            else:
+                normalized["BIK_SWIFT"] = bank_value
+        
+        return cls(normalized)
+    
     def build_query(self) -> str:
         """Building query for LightRAG"""
 
