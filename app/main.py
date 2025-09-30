@@ -102,7 +102,6 @@ async def compliance_check(req: ComplianceRequest, background_tasks: BackgroundT
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# ...existing code...
 
 
 @app.get("/health")

@@ -1,0 +1,52 @@
+# Archive folders (too large for Docker context)
+Archive*
+Archive (6)
+
+# Test results
+results/
+
+# Development files
+*.pyc
+__pycache__/
+*.pyo
+*.pyd
+.Python
+env/
+.env
+.venv/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Documentation
+docs/
+*.md
+LICENSE
+
+# Logs
+*.log
+logs/
+
+# Node modules (if any)
+node_modules/
