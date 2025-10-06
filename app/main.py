@@ -47,26 +47,34 @@ async def compliance_check(req: ComplianceRequest, background_tasks: BackgroundT
         checks = {}
 
         if parsed:
-            # Только новый формат
-            has_sanctions = False
-            
-            # Проверяем стороны
-            if parsed.get("proverka_storon"):
-                for country_data in parsed["proverka_storon"].values():
-                    if country_data.get("verdict") == True:
-                        has_sanctions = True
-                        break
-            
-            # Проверяем товары
-            if parsed.get("goods"):
-                for country_data in parsed["goods"].values():
-                    if country_data.get("verdict") == True:
-                        has_sanctions = True
-                        break
-            
-            verdict = "flag" if has_sanctions else "clear"
-            risk = "medium" if has_sanctions else "none"
-            checks = parsed  # Весь parsed JSON идёт в checks
+            # Проверяем вложенный verdict (если LightRAG вернул {"verdict": "flag", "checks": {...}})
+            if "verdict" in parsed and parsed["verdict"] == "flag":
+                verdict = "flag"
+                risk = parsed.get("risk_level", "medium")
+                # Извлекаем внутренний checks, если есть
+                checks = parsed.get("checks", parsed)
+            else:
+                # Проверяем по структуре
+                has_sanctions = False
+                
+                # Проверяем стороны (оба варианта: proverka_storon и check_parties)
+                parties_key = "proverka_storon" if "proverka_storon" in parsed else "check_parties"
+                if parsed.get(parties_key):
+                    for country_data in parsed[parties_key].values():
+                        if isinstance(country_data, dict) and country_data.get("verdict") == True:
+                            has_sanctions = True
+                            break
+                
+                # Проверяем товары
+                if parsed.get("goods"):
+                    for country_data in parsed["goods"].values():
+                        if isinstance(country_data, dict) and country_data.get("verdict") == True:
+                            has_sanctions = True
+                            break
+                
+                verdict = "flag" if has_sanctions else "clear"
+                risk = "medium" if has_sanctions else "none"
+                checks = parsed  # Весь parsed JSON идёт в checks
         else:
             verdict = "flag"
             risk = "medium"

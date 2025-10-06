@@ -25,6 +25,12 @@ Thumbs.db
 **/.Archive (6)/
 Archive (6)/
 
+Archive copy/
+Archive/
+**/Archive/
+Archive*/
+**/Archive*/
+
 results/
 .results/
 results/result_json_*.json
