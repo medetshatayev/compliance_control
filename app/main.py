@@ -28,8 +28,6 @@ def extract_json(s: str):
 @app.post("/compliance/check", response_model=ComplianceResponse)
 async def compliance_check(req: ComplianceRequest, background_tasks: BackgroundTasks):
     try:
-        # 1) {"data": {"fields": [ {name_eng, value, confidence}, ... ]}}
-        # 2) {"data": {"KEY": "VALUE", ...}} — плоский JSON
         data_obj = req.data or {}
         if isinstance(data_obj, dict) and "fields" in data_obj:
             query_builder = QueryBuilder.from_fields_data(data_obj)
@@ -37,63 +35,89 @@ async def compliance_check(req: ComplianceRequest, background_tasks: BackgroundT
             query_builder = QueryBuilder.from_flat_payload(data_obj)
         query_text = query_builder.build_query()
         lr = await query_lightrag(query_text)
-        # LightRAG may return either a dict with 'response' or a string
-        raw = lr if isinstance(lr, str) else lr.get("response", "")
-        parsed = extract_json(raw) if isinstance(raw, str) else None
+        # LightRAG may return either a string, or a dict (optionally with 'response')
+        raw_response = lr if not isinstance(lr, dict) else lr.get("response", lr)
+        if isinstance(raw_response, (dict, list)):
+            parsed = raw_response
+        elif isinstance(raw_response, str):
+            parsed = extract_json(raw_response)
+        else:
+            parsed = None
+
 
         # Decide verdict conservatively
         verdict = "flag"
-        risk = "medium"
-        checks = {}
+        checks = {
+            "check_parties": {
+                "us": {"verdict": False},
+                "uk": {"verdict": False},
+                "eu": {"verdict": False},
+            },
+            "route": None,
+            "contract_type": None,
+            "goods": {
+                "us": {"verdict": False, "hs code": "N/A"},
+                "uk": {"verdict": False, "hs code": "N/A"},
+                "eu": {"verdict": False, "hs code": "N/A"},
+            },
+            "explanation": "",
+        }
 
-        if parsed:
-            # Проверяем вложенный verdict (если LightRAG вернул {"verdict": "flag", "checks": {...}})
-            if "verdict" in parsed and parsed["verdict"] == "flag":
-                verdict = "flag"
-                risk = parsed.get("risk_level", "medium")
-                # Извлекаем внутренний checks, если есть
-                checks = parsed.get("checks", parsed)
-            else:
-                # Проверяем по структуре
-                has_sanctions = False
-                
-                # Проверяем стороны (оба варианта: proverka_storon и check_parties)
-                parties_key = "proverka_storon" if "proverka_storon" in parsed else "check_parties"
-                if parsed.get(parties_key):
-                    for country_data in parsed[parties_key].values():
-                        if isinstance(country_data, dict) and country_data.get("verdict") == True:
-                            has_sanctions = True
-                            break
-                
-                # Проверяем товары
-                if parsed.get("goods"):
-                    for country_data in parsed["goods"].values():
-                        if isinstance(country_data, dict) and country_data.get("verdict") == True:
-                            has_sanctions = True
-                            break
-                
-                verdict = "flag" if has_sanctions else "clear"
-                risk = "medium" if has_sanctions else "none"
-                checks = parsed  # Весь parsed JSON идёт в checks
-        else:
-            verdict = "flag"
-            risk = "medium"
-            checks = {}
+        if isinstance(parsed, dict):
+            src_checks = parsed.get("checks", parsed)
+
+            check_parties_src = {}
+            if isinstance(src_checks, dict):
+                check_parties_src = src_checks.get("check_parties") or src_checks.get("check parties") or {}
+
+            goods_src = src_checks.get("goods") if isinstance(src_checks, dict) else {}
+
+            checks["check_parties"] = {
+                "us": (check_parties_src.get("us") if isinstance(check_parties_src, dict) else None) or {"verdict": False},
+                "uk": (check_parties_src.get("uk") if isinstance(check_parties_src, dict) else None) or {"verdict": False},
+                "eu": (check_parties_src.get("eu") if isinstance(check_parties_src, dict) else None) or {"verdict": False},
+            }
+
+            checks["goods"] = {
+                "us": (goods_src.get("us") if isinstance(goods_src, dict) else None) or {"verdict": False, "hs code": "N/A"},
+                "uk": (goods_src.get("uk") if isinstance(goods_src, dict) else None) or {"verdict": False, "hs code": "N/A"},
+                "eu": (goods_src.get("eu") if isinstance(goods_src, dict) else None) or {"verdict": False, "hs code": "N/A"},
+            }
+
+            if isinstance(src_checks, dict):
+                checks["route"] = src_checks.get("route")
+                checks["contract_type"] = src_checks.get("contract_type")
+
+                explanations = []
+                for part in (src_checks, check_parties_src, goods_src):
+                    if isinstance(part, dict):
+                        exp = part.get("explanation")
+                        if isinstance(exp, str) and exp.strip():
+                            explanations.append(exp.strip())
+                if explanations:
+                    checks["explanation"] = " ".join(explanations).strip()
+
+            def any_true(verdicts_dict):
+                if not isinstance(verdicts_dict, dict):
+                    return False
+                for v in verdicts_dict.values():
+                    if isinstance(v, dict) and v.get("verdict") is True:
+                        return True
+                return False
+
+            has_sanctions = any_true(checks["check_parties"]) or any_true(checks["goods"])
+            verdict = "flag" if has_sanctions else "clear"
+
         response = ComplianceResponse(
             verdict=verdict,
-            risk_level=risk,
             checks=checks if isinstance(checks, dict) else {},
-            lightrag_response=raw if isinstance(raw, str) else str(lr)
         )
         
-        # Optional background callback delivery
         if req.callback_url:
             payload = {
                 "request_id": req.request_id,
                 "verdict": response.verdict,
-                "risk_level": response.risk_level,
                 "checks": response.checks,
-                "lightrag_response": response.lightrag_response,
             }
 
             async def _post_callback(url: str, body: dict):
@@ -101,7 +125,6 @@ async def compliance_check(req: ComplianceRequest, background_tasks: BackgroundT
                     async with httpx.AsyncClient(timeout=10.0) as client:
                         await client.post(url, json=body)
                 except Exception:
-                    # Swallow callback errors to not affect main response
                     pass
 
             background_tasks.add_task(_post_callback, req.callback_url, payload)
