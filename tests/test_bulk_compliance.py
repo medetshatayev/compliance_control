@@ -1,4 +1,4 @@
-import os
+import os 
 import json
 import uuid
 import csv
@@ -7,11 +7,11 @@ import logging
 from pathlib import Path
 from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
-
+import shutil
 import httpx
 
 BASE_URL: str = os.getenv("BASE_URL", "http://localhost:8000/").rstrip("/")
-ARCHIVE_PATH: Path = Path(os.getenv("ARCHIVE_PATH", "../Archive")).resolve()
+ARCHIVE_PATH: Path = Path(os.getenv("ARCHIVE_PATH", "../SKK-JSONs 1")).resolve()
 RESULTS_PATH: Path = Path(os.getenv("RESULTS_PATH", "../results")).resolve()
 
 CONCURRENCY: int = int(os.getenv("CONCURRENCY", "5"))
@@ -25,11 +25,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger("bulk-compliance")
 
-# --- EXACT columns requested by user (no test_id) ---
+# CSV columns with new output structure
 CSV_COLUMNS = [
-    "file_path",
-    "folder_name",
-    "timestamp",
+    # INPUT fields
     "INPUT_BIK_SWIFT",
     "INPUT_CONTRACT_CURRENCY",
     "INPUT_PAYMENT_CURRENCY",
@@ -57,16 +55,36 @@ CSV_COLUMNS = [
     "INPUT_THIRD_PARTIES",
     "INPUT_UN_CODE",
     "INPUT_CONTRACT_TYPE_SYSTEM",
-    "INPUT_BANK",
+    "INPUT_COUNTERPARTY_BANK_NAME",
+    "INPUT_CORRESPONDENT_BANK_NAME",
     "INPUT_ROUTE",
+    "INPUT_CONTRACT_NAMES",
+    # OUTPUT fields
     "OUTPUT_verdict",
-    "OUTPUT_explanation",
-    "OUTPUT_risk_level",
-    "OUTPUT_details",
+    "OUTPUT_check_parties_verdict",
+    "OUTPUT_check_parties_explanation",
+    "OUTPUT_route",
+    "OUTPUT_contract_type",
+    "OUTPUT_goods_verdict",
+    "OUTPUT_goods_hs_code",
+    "OUTPUT_goods_explanation",
 ]
 
 GLOBAL_CSV_LOCK = asyncio.Lock()
 GLOBAL_CSV_PATH: Optional[Path] = None
+
+
+def clear_results_folder():
+    if os.path.exists(RESULTS_PATH):
+        for filename in os.listdir(RESULTS_PATH):
+            file_path = os.path.join(RESULTS_PATH, filename)
+            try:
+                if os.path.isfile(file_path) or os.path.islink(file_path):
+                    os.unlink(file_path)
+                elif os.path.isdir(file_path):
+                    shutil.rmtree(file_path)
+            except Exception:
+                pass
 
 
 def now_utc_iso() -> str:
@@ -78,7 +96,7 @@ def ts_for_filename() -> str:
 
 
 def find_fb_flat_files(archive_path: Path) -> List[Path]:
-    return list(archive_path.rglob("fb_flat.json"))
+    return list(archive_path.rglob("*fb_flat*.json"))
 
 
 async def send_compliance_request(
@@ -87,10 +105,8 @@ async def send_compliance_request(
         file_path: Path,
 ) -> Dict[str, Any]:
     url = f"{BASE_URL}/compliance/check"
-    payload = {
-        "data": data,
-        "request_id": f"test_{now_utc_iso()}_{uuid.uuid4().hex[:8]}",
-    }
+    # New structure: just {"data": {...}}
+    payload = {"data": data}
 
     last_error: Optional[Exception] = None
     for attempt in range(1, RETRIES + 1):
@@ -125,9 +141,6 @@ def build_result_record(
         error: Optional[str] = None,
 ) -> Dict[str, Any]:
     return {
-        "file_path": str(file_path),
-        "folder_name": file_path.parent.name,
-        "timestamp": now_utc_iso(),
         "input_data": input_data,
         "response": response,
         "error": error,
@@ -143,28 +156,26 @@ def is_success(result: Dict[str, Any]) -> bool:
 
 def _get_from_input(input_data: Optional[Dict[str, Any]], field: str) -> Optional[Any]:
     """
-    Tries several fallbacks to extract the value from input JSON.
-    Field is like 'INPUT_BIK_SWIFT' — we try:
-      - input_data['INPUT_BIK_SWIFT']
-      - input_data['BIK_SWIFT'] (without prefix)
-      - input_data['bik_swift'] (lower)
-      - input_data.get('input', {}).get('bik_swift') (nested)
-      - stringified fallback if value exists under similar key
+    Extract field value from input data with multiple fallback strategies.
     """
     if not input_data:
         return None
     if field in input_data:
         return input_data[field]
+    
     key = field
     if key.startswith("INPUT_"):
         key_no = key[len("INPUT_"):]
     else:
         key_no = key
+    
     if key_no in input_data:
         return input_data[key_no]
+    
     lower = key_no.lower()
     if lower in input_data:
         return input_data[lower]
+    
     for parent in ("input", "INPUT", "payload", "data"):
         pv = input_data.get(parent)
         if isinstance(pv, dict):
@@ -174,57 +185,70 @@ def _get_from_input(input_data: Optional[Dict[str, Any]], field: str) -> Optiona
                 return pv[key_no]
             if lower in pv:
                 return pv[lower]
+    
     for k, v in input_data.items():
         if isinstance(k, str) and key_no.lower() in k.lower():
             return v
+    
     return None
 
 
 def _extract_output_fields(response: Optional[Dict[str, Any]]) -> Dict[str, Optional[Any]]:
     """
-    Extract common output fields from the response structure.
-    We expect response to be the dict returned by send_compliance_request:
-      {"ok": True/False, "status": int, "json": {...}, "text": "...", "error": ...}
-    The real API payload (resp_json) is likely under response["json"].
-    We'll try multiple fallbacks to get verdict/explanation/risk_level/details.
+    Extract output fields from new response structure:
+    {
+      "verdict": "flag",
+      "checks": {
+        "check_parties": {"verdict": true, "explanation": "..."},
+        "route": "RU-KZ",
+        "contract_type": "экспорт",
+        "goods": {"verdict": true, "hs_code": "...", "explanation": "..."}
+      }
+    }
     """
-    out = {"OUTPUT_verdict": None, "OUTPUT_explanation": None, "OUTPUT_risk_level": None, "OUTPUT_details": None}
+    out = {
+        "OUTPUT_verdict": None,
+        "OUTPUT_check_parties_verdict": None,
+        "OUTPUT_check_parties_explanation": None,
+        "OUTPUT_route": None,
+        "OUTPUT_contract_type": None,
+        "OUTPUT_goods_verdict": None,
+        "OUTPUT_goods_hs_code": None,
+        "OUTPUT_goods_explanation": None,
+    }
+    
     if not response:
         return out
 
     resp_json = response.get("json") or {}
-    candidates = []
-    if isinstance(resp_json, dict):
-        candidates.append(resp_json)
-    if isinstance(resp_json.get("output"), dict):
-        candidates.append(resp_json["output"])
-    if isinstance(resp_json.get("result"), dict):
-        candidates.append(resp_json["result"])
-    candidates.append(response)
+    if not isinstance(resp_json, dict):
+        return out
 
-    for c in candidates:
-        if not isinstance(c, dict):
-            continue
-        if out["OUTPUT_verdict"] is None:
-            out["OUTPUT_verdict"] = c.get("verdict") or c.get("decision") or c.get("status")
-        if out["OUTPUT_explanation"] is None:
-            out["OUTPUT_explanation"] = c.get("explanation") or c.get("reason") or c.get("message")
-        if out["OUTPUT_risk_level"] is None:
-            out["OUTPUT_risk_level"] = c.get("risk_level") or c.get("risk") or c.get("level")
-        if out["OUTPUT_details"] is None:
-            details = c.get("details") or c.get("data") or c.get("debug")
-            if details is not None:
-                try:
-                    out["OUTPUT_details"] = json.dumps(details, ensure_ascii=False)
-                except Exception:
-                    out["OUTPUT_details"] = str(details)
-
-    if not any([out["OUTPUT_verdict"], out["OUTPUT_explanation"], out["OUTPUT_risk_level"], out["OUTPUT_details"]]):
-        try:
-            out["OUTPUT_details"] = json.dumps(resp_json, ensure_ascii=False)
-        except Exception:
-            out["OUTPUT_details"] = str(resp_json)
-
+    # Main verdict
+    out["OUTPUT_verdict"] = resp_json.get("verdict")
+    
+    # Extract checks
+    checks = resp_json.get("checks") or {}
+    if not isinstance(checks, dict):
+        return out
+    
+    # check_parties (always present)
+    check_parties = checks.get("check_parties") or {}
+    if isinstance(check_parties, dict):
+        out["OUTPUT_check_parties_verdict"] = check_parties.get("verdict")
+        out["OUTPUT_check_parties_explanation"] = check_parties.get("explanation")
+    
+    # route and contract_type (only for CROSS_BORDER=1, else None)
+    out["OUTPUT_route"] = checks.get("route")
+    out["OUTPUT_contract_type"] = checks.get("contract_type")
+    
+    # goods (only for CROSS_BORDER=1, else None)
+    goods = checks.get("goods") or {}
+    if isinstance(goods, dict):
+        out["OUTPUT_goods_verdict"] = goods.get("verdict")
+        out["OUTPUT_goods_hs_code"] = goods.get("hs_code")
+        out["OUTPUT_goods_explanation"] = goods.get("explanation")
+    
     return out
 
 
@@ -247,7 +271,6 @@ async def write_row_to_global_csv(csv_path: Path, lock: asyncio.Lock, row: Dict[
             writer.writerow(ordered)
 
 
-
 async def handle_one(
         session: httpx.AsyncClient,
         file_path: Path,
@@ -263,14 +286,10 @@ async def handle_one(
             input_data = json.loads(text)
         except Exception as e:
             result = build_result_record(file_path, None, None, error=f"JSON read error: {e}")
-            row = {
-                "file_path": str(file_path),
-                "folder_name": file_path.parent.name,
-                "timestamp": now_utc_iso(),
-            }
+            row = {}
             for col in CSV_COLUMNS:
                 row.setdefault(col, None)
-            row["OUTPUT_details"] = f"JSON read error: {e}"
+            row["OUTPUT_check_parties_explanation"] = f"JSON read error: {e}"
             await write_row_to_global_csv(GLOBAL_CSV_PATH, GLOBAL_CSV_LOCK, row)
             await save_individual_result(results_dir, result, file_path.parent.name)
             return result
@@ -279,36 +298,33 @@ async def handle_one(
         result = build_result_record(file_path, input_data, response)
         await save_individual_result(results_dir, result, file_path.parent.name)
 
-        row: Dict[str, Any] = {
-            "file_path": str(file_path),
-            "folder_name": file_path.parent.name,
-            "timestamp": now_utc_iso(),
-        }
+        row: Dict[str, Any] = {}
         
+        # Extract INPUT fields
         for col in CSV_COLUMNS:
             if col.startswith("INPUT_"):
                 row[col] = _get_from_input(input_data, col)
 
+        # Extract OUTPUT fields
         out_fields = _extract_output_fields(response)
         row.update(out_fields)
 
-        # ensure all CSV columns exist
+        # Ensure all CSV columns exist
         for col in CSV_COLUMNS:
             row.setdefault(col, None)
 
-        # append to global csv
+        # Append to global CSV
         await write_row_to_global_csv(GLOBAL_CSV_PATH, GLOBAL_CSV_LOCK, row)
 
         return result
 
 
 async def save_individual_result(results_dir: Path, result: Dict[str, Any], folder_name: str) -> None:
-    """Saves the full JSON result file (kept for debugging)"""
+    """Saves the full JSON result file for debugging"""
     results_dir.mkdir(parents=True, exist_ok=True)
     uid = uuid.uuid4().hex[:6]
     base_name = f"result_{folder_name}_{ts_for_filename()}_{uid}"
 
-    # JSON
     json_path = results_dir / f"{base_name}.json"
     json_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
 
@@ -327,7 +343,7 @@ async def process_files() -> None:
     csv_name = f"batch_results_{ts_for_filename()}.csv"
     GLOBAL_CSV_PATH = RESULTS_PATH / csv_name
 
-    # сразу пишем фиксированный заголовок
+    # Write header
     with open(GLOBAL_CSV_PATH, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         writer.writerow(CSV_COLUMNS)
@@ -356,9 +372,11 @@ async def process_files() -> None:
     logger.info(f"Global CSV saved: {GLOBAL_CSV_PATH}")
 
 
-
 def main() -> None:
     logger.info("🚀 Starting bulk compliance testing (single CSV output)...")
+
+    clear_results_folder()
+
     if not ARCHIVE_PATH.exists():
         logger.error(f"Archive directory not found: {ARCHIVE_PATH}")
         return

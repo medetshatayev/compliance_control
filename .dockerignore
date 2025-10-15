@@ -1,9 +1,14 @@
 # Archive folders (too large for Docker context)
 Archive*
 Archive (6)
+SKK-JSONs 1 copy/
+SKK-JSONs 1/
 
 # Test results
 results/
+
+# CSV files
+*.csv
 
 # Development files
 *.pyc

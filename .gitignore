@@ -35,3 +35,10 @@ results/
 .results/
 results/result_json_*.json
 results/summary_*.json
+*.csv
+
+# SKK JSONs and Archive files
+SKK-JSONs*/
+**/SKK-JSONs*/
+Archive.zip
+Archive*.zip
