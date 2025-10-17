@@ -20,3 +20,25 @@ env/
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+.Archive (6)/
+**/.Archive (6)/
+Archive (6)/
+
+Archive copy/
+Archive/
+**/Archive/
+Archive*/
+**/Archive*/
+
+results/
+.results/
+results/result_json_*.json
+results/summary_*.json
+*.csv
+
+# SKK JSONs and Archive files
+SKK-JSONs*/
+**/SKK-JSONs*/
+Archive.zip
+Archive*.zip

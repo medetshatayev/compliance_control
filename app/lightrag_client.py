@@ -30,9 +30,17 @@ async def query_lightrag(query_text: str):
             "query": query_text,
             "mode": "mix",
             "response_type": "JSON",
-            "top_k": 20,
-            "chunk_top_k": 15,
+            # Fast configuration - optimized for speed and cost
+            "kg_top_k": 10,
+            "chunk_top_k": 8,
             "enable_rerank": False,
+            # Token limits: entity + relation + buffer = total
+            "max_entity_tokens": 2000,
+            "max_relation_tokens": 2500,
+            "max_total_tokens": 6000,  # 2000 + 2500 + 1500 buffer
+            # Misc flags
+            "only_need_context": False,
+            "stream": False,
             "history_turns": 0
         }
         
